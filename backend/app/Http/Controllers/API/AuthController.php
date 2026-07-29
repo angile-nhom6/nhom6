@@ -262,81 +262,268 @@ class AuthController extends Controller
         }
     }
 }
-<div id="dangnhap">
 
-        <form action="thongtin.php" method="post">
+<?php
 
-            <table  border="0" width="400">
+namespace App\Http\Controllers\API;
 
-                <tr>
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
-                    <td colspan="2"  align="center"><h2>ĐĂNG NHẬP HỆ THỐNG</h2></td>
+class AuthController extends Controller
+{
+    public function register(Request $request)
+    {
+        try {
+            $fields = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users',
+                'password' => 'required|string|min:3|confirmed',
+            ], [
+                'name.required' => 'Tên là bắt buộc.',
+                'name.string' => 'Tên phải là chuỗi ký tự.',
+                'name.max' => 'Tên không được vượt quá 255 ký tự.',
+                'email.required' => 'Email là bắt buộc.',
+                'email.string' => 'Email phải là chuỗi ký tự.',
+                'email.email' => 'Email không hợp lệ.',
+                'email.max' => 'Email không được vượt quá 255 ký tự.',
+                'email.unique' => 'Email đã được sử dụng.',
+                'password.required' => 'Mật khẩu là bắt buộc.',
+                'password.string' => 'Mật khẩu phải là chuỗi ký tự.',
+                'password.min' => 'Mật khẩu phải có ít nhất 3 ký tự.',
+                'password.confirmed' => 'Xác nhận mật khẩu không khớp.'
+            ]);
 
-                </tr>
+            $user = User::create([
+                'name' => $fields['name'],
+                'email' => $fields['email'],
+                'password' => Hash::make($fields['password']),
+                'role' => 'user',
+            ]);
 
-                <tr>
+            $token = $user->createToken($request->name)->plainTextToken;
 
-                    <td>Tên đăng nhập:</td>
+            return response()->json([
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                ],
+                'token' => $token,
+            ], 201);
+        } catch (\Exception $e) {
+            Log::error('Registration error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Đăng ký thất bại: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 
-                    <td><input type="text" name="tdn" class="bien" /></td>
+    public function login(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|string|email|max:255',
+                'password' => 'required',
+            ], [
+                'email.required' => 'Email là bắt buộc.',
+                'email.string' => 'Email phải là chuỗi ký tự.',
+                'email.email' => 'Email không hợp lệ.',
+                'email.max' => 'Email không được vượt quá 255 ký tự.',
+                'password.required' => 'Mật khẩu là bắt buộc.'
+            ]);
 
-                </tr>
+            $user = User::where('email', $request->email)->first();
 
-                <tr>
+            if (!$user || !Hash::check($request->password, $user->password)) {
+                return response()->json([
+                    'message' => 'Thông tin đăng nhập không chính xác',
+                ], 401);
+            }
 
-                    <td>Mật khẩu:</td>
+            // Check if user account is active
+            if (!$user->is_active) {
+                return response()->json([
+                    'message' => 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.',
+                ], 403);
+            }
 
-                    <td><input type="password" name="mk" class="bien"  /></td>
+            $token = $user->createToken($user->name)->plainTextToken;
 
-                </tr>
+            return response()->json([
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                ],
+                'token' => $token,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Login error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Đăng nhập thất bại: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 
-                <tr>
+    public function logout(Request $request)
+    {
+        try {
+            $request->user()->tokens()->delete();
+            return response()->json([
+                'message' => 'Đăng xuất thành công',
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Logout error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Đăng xuất thất bại: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 
-                    <td colspan="2" align="center"><input type="submit" name="xacnhan" value="Đăng Nhập" class="button" /></td>
+    /**
+     * Gửi email reset password
+     */
+    public function forgotPassword(Request $request)
+    {
+        try {
+            // Debug logging
+            Log::info('Forgot password request data: ' . json_encode($request->all()));
+            
+            $request->validate([
+                'email' => 'required|email|exists:users,email'
+            ], [
+                'email.required' => 'Email là bắt buộc',
+                'email.email' => 'Email không hợp lệ',
+                'email.exists' => 'Email không tồn tại trong hệ thống'
+            ]);
 
-                </tr>
+            $user = User::where('email', $request->email)->first();
 
-            </table>
+            if (!$user->is_active) {
+                return response()->json([
+                    'message' => 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.'
+                ], 403);
+            }
 
-        </form>
+            // Tạo token reset password
+            $token = Str::random(64);
+            
+            // Xóa token cũ nếu có
+            DB::table('password_reset_tokens')
+                ->where('email', $request->email)
+                ->delete();
 
-        </div>
-        <div id="dangnhap">
+            // Tạo token mới
+            DB::table('password_reset_tokens')->insert([
+                'email' => $request->email,
+                'token' => Hash::make($token),
+                'created_at' => Carbon::now()
+            ]);
 
-        <form action="thongtin.php" method="post">
+            // Gửi email
+            Mail::send('emails.password-reset', [
+                'user' => $user,
+                'token' => $token,
+                'resetUrl' => config('app.frontend_url') . '/reset-password?token=' . $token . '&email=' . urlencode($request->email)
+            ], function($message) use ($request) {
+                $message->to($request->email);
+                $message->subject('Đặt lại mật khẩu - BookStore');
+            });
 
-            <table  border="0" width="400">
+            return response()->json([
+                'message' => 'Chúng tôi đã gửi link đặt lại mật khẩu đến email của bạn. Vui lòng kiểm tra hộp thư.'
+            ]);
 
-                <tr>
+        } catch (\Exception $e) {
+            Log::error('Forgot password error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Có lỗi xảy ra khi gửi email. Vui lòng thử lại sau.'
+            ], 500);
+        }
+    }
 
-                    <td colspan="2"  align="center"><h2>ĐĂNG NHẬP HỆ THỐNG</h2></td>
+    /**
+     * Reset password với token
+     */
+    public function resetPassword(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email|exists:users,email',
+                'token' => 'required|string',
+                'password' => 'required|string|min:6|confirmed'
+            ], [
+                'email.required' => 'Email là bắt buộc',
+                'email.email' => 'Email không hợp lệ',
+                'email.exists' => 'Email không tồn tại trong hệ thống',
+                'token.required' => 'Token là bắt buộc',
+                'password.required' => 'Mật khẩu là bắt buộc',
+                'password.min' => 'Mật khẩu phải có ít nhất 6 ký tự',
+                'password.confirmed' => 'Xác nhận mật khẩu không khớp'
+            ]);
 
-                </tr>
+            // Kiểm tra token
+            $passwordReset = DB::table('password_reset_tokens')
+                ->where('email', $request->email)
+                ->first();
 
-                <tr>
+            if (!$passwordReset) {
+                return response()->json([
+                    'message' => 'Token không hợp lệ hoặc đã hết hạn'
+                ], 400);
+            }
 
-                    <td>Tên đăng nhập:</td>
+            // Kiểm tra token có khớp không
+            if (!Hash::check($request->token, $passwordReset->token)) {
+                return response()->json([
+                    'message' => 'Token không hợp lệ'
+                ], 400);
+            }
 
-                    <td><input type="text" name="tdn" class="bien" /></td>
+            // Kiểm tra token có hết hạn không (60 phút)
+            if (Carbon::parse($passwordReset->created_at)->addMinutes(60)->isPast()) {
+                DB::table('password_reset_tokens')
+                    ->where('email', $request->email)
+                    ->delete();
+                    
+                return response()->json([
+                    'message' => 'Token đã hết hạn. Vui lòng yêu cầu đặt lại mật khẩu mới.'
+                ], 400);
+            }
 
-                </tr>
+            // Cập nhật mật khẩu
+            $user = User::where('email', $request->email)->first();
+            $user->password = Hash::make($request->password);
+            $user->save();
 
-                <tr>
+            // Xóa token đã sử dụng
+            DB::table('password_reset_tokens')
+                ->where('email', $request->email)
+                ->delete();
 
-                    <td>Mật khẩu:</td>
+            // Xóa tất cả token đăng nhập hiện tại
+            $user->tokens()->delete();
 
-                    <td><input type="password" name="mk" class="bien"  /></td>
+            return response()->json([
+                'message' => 'Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập lại.'
+            ]);
 
-                </tr>
-
-                <tr>
-
-                    <td colspan="2" align="center"><input type="submit" name="xacnhan" value="Đăng Nhập" class="button" /></td>
-
-                </tr>
-
-            </table>
-
-        </form>
-
-        </div>
+        } catch (\Exception $e) {
+            Log::error('Reset password error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Có lỗi xảy ra khi đặt lại mật khẩu. Vui lòng thử lại sau.'
+            ], 500);
+        }
+    }
+}
