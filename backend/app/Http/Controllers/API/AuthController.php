@@ -262,7 +262,6 @@ class AuthController extends Controller
         }
     }
 }
-
 <div id="dangnhap">
 
         <form action="thongtin.php" method="post">
