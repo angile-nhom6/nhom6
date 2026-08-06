@@ -19,19 +19,19 @@ use App\Http\Controllers\API\SettingsController;
 use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\API\ImageUploadController;
 
-// Root route
+
 Route::get('/', function () {
     return 'API';
 });
 
-
+// Authentication routes
 Route::post('/register', [AuthController::class, 'register'])->name('auth.register');
 Route::post('/login', [AuthController::class, 'login'])->name('auth.login');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware(['auth:sanctum'])->name('auth.logout');
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-
+// Public routes for books, authors, categories, publishers, and reviews
 Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
 Route::get('/categories/{category}', [CategoryController::class, 'show'])->name('categories.show');
 Route::get('/books', [BookController::class, 'index'])->name('books.index');
@@ -41,23 +41,23 @@ Route::get('/authors/{author}', [AuthorController::class, 'show'])->name('author
 Route::get('/publishers', [PublisherController::class, 'index'])->name('publishers.index');
 Route::get('/publishers/{publisher}', [PublisherController::class, 'show'])->name('publishers.show');
 
-// Public review routes
+// Public routes for reviews
 Route::get('/books/{book}/reviews', [ReviewController::class, 'index'])->name('reviews.index');
 
 // Public analytics routes
 Route::get('/featured-books', [AnalyticsController::class, 'getFeaturedBooks'])->name('featured-books');
 
-// Admin/Mod routes (protected by auth:sanctum, check.user.status and admin.or.mod middleware)
+// Public routes for coupons
 Route::middleware(['auth:sanctum', 'check.user.status', 'admin.or.mod'])->group(function () {
-    // Image upload for RichText Editor
+   // Image upload routes
     Route::post('/upload/editor-image', [ImageUploadController::class, 'uploadEditorImage'])->name('upload.editor-image');
     Route::delete('/upload/editor-image', [ImageUploadController::class, 'deleteEditorImage'])->name('upload.delete-editor-image');
-    // Categories
+    // Admin routes for managing categories, books, authors, publishers, orders, analytics, audit logs, coupons, users, reviews, and settings
     Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
     Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
     Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 
-    // Books
+    // Book routes for admin
     Route::post('/books', [BookController::class, 'store'])->name('books.store');
     Route::put('/books/{book}', [BookController::class, 'update'])->name('books.update');
     Route::delete('/books/{book}', [BookController::class, 'destroy'])->name('books.destroy');
