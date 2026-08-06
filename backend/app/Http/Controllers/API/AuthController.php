@@ -85,7 +85,7 @@ class AuthController extends Controller
                 ], 401);
             }
 
-            // Check if user account is active
+           
             if (!$user->is_active) {
                 return response()->json([
                     'message' => 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.',
