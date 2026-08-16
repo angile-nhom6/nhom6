@@ -88,9 +88,7 @@ class CouponController extends Controller
         ]);
     }
 
-    /**
-     * Tạo mã khuyến mại mới
-     */
+    // the rest of the methods (store, show, update, destroy, validate, generateCode, getActiveCoupons, stats) are implemented below
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -128,7 +126,7 @@ class CouponController extends Controller
             ], 422);
         }
 
-        // Validation bổ sung
+        // Xác thực bổ sung: nếu loại là percentage, giá trị không được vượt quá 100
         if ($request->type === 'percentage' && $request->value > 100) {
             return response()->json([
                 'success' => false,
