@@ -17,9 +17,7 @@ class Publisher extends Model
         return $this->hasMany(Book::class);
     }
 
-    /**
-     * Get human-readable field names for audit logs
-     */
+    // Get the labels for the audit fields
     public function getAuditFieldLabels()
     {
         return [
