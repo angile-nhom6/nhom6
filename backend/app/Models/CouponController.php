@@ -160,9 +160,10 @@ class CouponController extends Controller
         ]);
     }
 
-    /**
-     * Cập nhật mã khuyến mại
-     */
+    // /**
+    //  * Cập nhật mã khuyến mại
+    //  */
+    // Given the complexity of the update method, it is implemented below with validation and additional checks for percentage type coupons.
     public function update(Request $request, Coupon $coupon)
     {
         $validator = Validator::make($request->all(), [
@@ -190,6 +191,7 @@ class CouponController extends Controller
             'end_date.required' => 'Ngày kết thúc là bắt buộc',
             'end_date.after' => 'Ngày kết thúc phải sau ngày bắt đầu'
         ]);
+        // The validation rules ensure that the coupon code is unique (excluding the current coupon), the name and type are required, and the value must be a positive number. The start and end dates are also validated to ensure they are proper dates and that the end date is after the start date.
 
         if ($validator->fails()) {
             return response()->json([
@@ -206,8 +208,10 @@ class CouponController extends Controller
                 'message' => 'Giá trị phần trăm không được vượt quá 100%'
             ], 422);
         }
+        // The additional validation checks if the coupon type is 'percentage' and ensures that the value does not exceed 100%. If it does, a validation error is returned.
 
         $coupon->update($request->all());
+        // The coupon is updated with the validated data from the request. The update method automatically handles mass assignment for the fillable attributes defined in the Coupon model.
 
         return response()->json([
             'success' => true,
@@ -219,6 +223,7 @@ class CouponController extends Controller
     /**
      * Xóa mã khuyến mại
      */
+    // The destroy method checks if the coupon has been used before allowing deletion. If the used_count is greater than 0, it returns an error message. Otherwise, it deletes the coupon and returns a success message.
     public function destroy(Coupon $coupon)
     {
         // Kiểm tra xem mã khuyến mại đã được sử dụng chưa
@@ -228,7 +233,7 @@ class CouponController extends Controller
                 'message' => 'Không thể xóa mã khuyến mại đã được sử dụng'
             ], 422);
         }
-
+                    // If the coupon has not been used, it proceeds to delete the coupon from the database. After deletion, it returns a success message indicating that the coupon has been successfully deleted.
         $coupon->delete();
 
         return response()->json([
@@ -240,6 +245,7 @@ class CouponController extends Controller
     /**
      * Kiểm tra tính hợp lệ của mã khuyến mại (Public)
      */
+    // The validate method checks if a given coupon code is valid for a specific order amount. It first validates the input data, then checks if the coupon exists and if it can be used by the current user. If valid, it calculates the discount amount and returns the final amount after applying the discount. If invalid, it returns appropriate error messages.
     public function validate(Request $request)
     {
         $validator = Validator::make($request->all(), [
