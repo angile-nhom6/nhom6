@@ -10,23 +10,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CategoryController extends Controller
 {
-    /**
-     * Display a listing of the categories.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function index()
     {
         $categories = Category::orderBy('name', 'asc')->get();
         return response()->json(['data' => $categories], Response::HTTP_OK);
     }
-
-    /**
-     * Display the specified category.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
-     */
+    
     public function show($id)
     {
         $category = Category::find($id);

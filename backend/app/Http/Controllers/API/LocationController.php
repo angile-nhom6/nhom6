@@ -9,9 +9,6 @@ use App\Models\Ward;
 
 class LocationController extends Controller
 {
-    /**
-     * Lấy danh sách tất cả tỉnh/thành phố
-     */
     public function getProvinces()
     {
         try {
